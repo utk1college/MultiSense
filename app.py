@@ -333,14 +333,20 @@ def load_sensor_data(_live_mode):
                 tolerance=pd.Timedelta("1s"),
                 suffixes=("_audio", "_sensor")
             )
-            # Use sensor data for duplicates (sensor_samples is more reliable for motion)
-            if "heartRate_sensor" in df.columns:
-                df["heartRate"] = df["heartRate_sensor"]
-                df = df.drop(columns=["heartRate_sensor"])
-            if "accelMag_sensor" in df.columns:
+            # Prefer sensor_samples data, but fall back to audio_samples summary values
+            # when the timestamp merge misses and the sensor-side fields are null.
+            if "heartRate" in df.columns and "heart_rate" in df.columns:
+                df["heartRate"] = df["heartRate"].combine_first(df["heart_rate"])
+            elif "heart_rate" in df.columns:
+                df["heartRate"] = df["heart_rate"]
+
+            if "accelMag_sensor" in df.columns and "accelMag_audio" in df.columns:
+                df["accelMag"] = df["accelMag_sensor"].combine_first(df["accelMag_audio"])
+                df = df.drop(columns=["accelMag_sensor", "accelMag_audio"])
+            elif "accelMag_sensor" in df.columns:
                 df["accelMag"] = df["accelMag_sensor"]
                 df = df.drop(columns=["accelMag_sensor"])
-            # Drop audio versions of motion data since we're using sensor data
+
             df = df.drop(columns=[c for c in ["heart_rate", "accel_magnitude"] if c in df.columns])
         else:
             # If no audio data, use sensor data as the base
@@ -528,7 +534,7 @@ def detect_cmai_behaviours(sensor_df, audio_df):
     spectral_bandwidth = safe_get_val(audio_df, "spectral_bandwidth")
 
     accel = safe_get_val(sensor_df, "accelMag_smooth")
-    hr = safe_get_val(sensor_df, "heart_rate")
+    hr = safe_get_val(sensor_df, "heartRate")
     gyro_mag = safe_get_val(sensor_df, "gyroMag")
 
 
