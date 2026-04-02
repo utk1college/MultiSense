@@ -1,0 +1,19 @@
+# MultiSense Project Dependencies
+# Python 3.7+ required
+
+# Core Framework
+streamlit>=1.28.0
+streamlit-autorefresh>=0.0.1
+
+# Firebase Integration
+firebase-admin>=6.0.0
+
+# Data Processing
+pandas>=1.5.0
+numpy>=1.23.0
+
+# Visualization
+plotly>=5.14.0
+
+# Utilities
+pytz>=2023.3
