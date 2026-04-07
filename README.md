@@ -43,6 +43,10 @@ Start the app:
 streamlit run app.py
 ```
 
+## Development
+
+This repository uses Claude Code for AI-assisted development. For information about Claude Code's capabilities, GitHub integration, and development workflow, see [API.md](API.md).
+
 ## Notes
 
 - This is a research prototype, not a clinically validated tool.
