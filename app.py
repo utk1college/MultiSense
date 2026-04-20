@@ -12,6 +12,10 @@ from datetime import datetime, timedelta
 import json
 import os
 
+from utils.data_loader import load_sensor_data, load_audio_data, load_camera_data, load_cmai_detections
+from utils.cmai_engine import detect_cmai_behaviours, safe_get_val, safe_get_recent, describe_spo2, latest_val
+from utils.ui_helpers import inject_custom_css, style_fig, ACCENT, FONT_C
+
 # ════════════════════════════════════════════════════════════════
 #  PAGE CONFIG & CUSTOM CSS
 # ════════════════════════════════════════════════════════════════
@@ -22,190 +26,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ---------- inject modern CSS ----------
-st.markdown("""
-<style>
-/* ---- global ---- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-
-/* ---- remove default padding ---- */
-.block-container { padding-top: 2rem; padding-bottom: 0.5rem; }
-
-/* ---- metric card ---- */
-div[data-testid="stMetric"] {
-    background: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 14px;
-    padding: 18px 20px;
-    box-shadow: 0 4px 20px rgba(0,0,0,.25);
-}
-div[data-testid="stMetric"] label {
-    color: #9ca3af !important;
-    font-size: .82rem !important;
-    letter-spacing: .03em;
-}
-div[data-testid="stMetric"] [data-testid="stMetricValue"] {
-    font-weight: 700 !important;
-    font-size: 1.55rem !important;
-    color: #e2e8f0 !important;
-}
-
-/* ---- section header ---- */
-.section-header {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #cbd5e1;
-    margin: 1.2rem 0 0.6rem 0;
-    letter-spacing: .02em;
-}
-
-/* ---- calm / agitated badges ---- */
-.badge-calm {
-    display: inline-block;
-    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-    color: #fff;
-    font-weight: 600;
-    font-size: 1.35rem;
-    padding: 16px 28px;
-    border-radius: 14px;
-}
-.badge-agitated {
-    display: inline-block;
-    background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
-    color: #fff;
-    font-weight: 600;
-    font-size: 1.35rem;
-    padding: 16px 28px;
-    border-radius: 14px;
-    animation: pulse 1.5s ease-in-out infinite;
-}
-@keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,.5); }
-    50% { box-shadow: 0 0 0 12px rgba(248,113,113,0); }
-}
-
-/* ---- detection alert ---- */
-.detection-alert {
-    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-    color: #fff;
-    padding: 12px 20px;
-    border-radius: 10px;
-    margin: 10px 0;
-    font-weight: 500;
-}
-.detection-alert-warning {
-    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-    color: #fff;
-    padding: 12px 20px;
-    border-radius: 10px;
-    margin: 10px 0;
-    font-weight: 500;
-}
-
-/* ---- intervention banner ---- */
-.intervention-banner {
-    background: linear-gradient(90deg, #1e3a5f 0%, #2d4a6f 100%);
-    border-left: 4px solid #38bdf8;
-    color: #e0f2fe;
-    padding: 14px 20px;
-    border-radius: 0 10px 10px 0;
-    margin: 12px 0;
-}
-
-/* ---- research notes ---- */
-.research-note {
-    background: rgba(59, 130, 246, 0.08);
-    border-left: 3px solid #3b82f6;
-    padding: 12px 16px;
-    border-radius: 0 8px 8px 0;
-    color: #94a3b8;
-    font-size: 0.88rem;
-    margin: 12px 0;
-}
-
-/* ---- CMAI section boxes ---- */
-.cmai-section-box {
-    background: rgba(30, 30, 47, 0.6);
-    border: 1px solid rgba(255,255,255,.06);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 12px;
-}
-.cmai-category-header {
-    font-weight: 600;
-    font-size: 1.05rem;
-    margin-bottom: 8px;
-}
-.signal-tag {
-    display: inline-block;
-    background: rgba(56, 189, 248, 0.15);
-    color: #38bdf8;
-    font-size: 0.72rem;
-    padding: 3px 8px;
-    border-radius: 4px;
-    margin: 2px;
-    font-family: monospace;
-}
-.signal-tag-new {
-    display: inline-block;
-    background: rgba(52, 211, 153, 0.15);
-    color: #34d399;
-    font-size: 0.72rem;
-    padding: 3px 8px;
-    border-radius: 4px;
-    margin: 2px;
-    font-family: monospace;
-}
-.cmai-item-status {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-size: 0.78rem;
-    font-weight: 500;
-}
-.status-detectable { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-.status-partial { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
-.status-not-detectable { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
-
-/* ---- mode indicator ---- */
-.mode-live { color: #ef4444; font-weight: 600; }
-.mode-offline { color: #22c55e; font-weight: 600; }
-
-/* ---- keyword alert popup ---- */
-.keyword-alert {
-    background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);
-    color: #fff;
-    padding: 16px 20px;
-    border-radius: 12px;
-    margin: 12px 0;
-    border: 2px solid #a78bfa;
-    animation: glow 2s ease-in-out infinite;
-}
-@keyframes glow {
-    0%, 100% { box-shadow: 0 0 10px rgba(167, 139, 250, 0.5); }
-    50% { box-shadow: 0 0 25px rgba(167, 139, 250, 0.8); }
-}
-.keyword-tag {
-    display: inline-block;
-    background: rgba(255,255,255,0.2);
-    padding: 4px 12px;
-    border-radius: 20px;
-    margin: 4px;
-    font-weight: 600;
-}
-.score-badge {
-    display: inline-block;
-    padding: 6px 14px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 1.1rem;
-}
-.score-high { background: #ef4444; color: white; }
-.score-medium { background: #f59e0b; color: white; }
-.score-low { background: #22c55e; color: white; }
-</style>
-""", unsafe_allow_html=True)
+inject_custom_css()
 
 # ════════════════════════════════════════════════════════════════
 #  SESSION STATE INITIALIZATION
@@ -243,207 +64,11 @@ with ctrl3:
 
 st.markdown("---")
 
-# ════════════════════════════════════════════════════════════════
-#  FIREBASE INIT
-# ════════════════════════════════════════════════════════════════
-if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
-    firebase_admin.initialize_app(cred)
-db = firestore.client()
-
-# ════════════════════════════════════════════════════════════════
-#  DATA LOADING (Firebase-quota friendly)
-# ════════════════════════════════════════════════════════════════
-@st.cache_data(ttl=300 if not live_mode else 30)
-def load_sensor_data(_live_mode):
-    """Load sensor/motion data from audio_samples (motion data) + sensor_samples (gyro data)."""
-    ist = pytz.timezone("Asia/Kolkata")
-    start = pd.Timestamp.now(tz=ist).normalize().tz_convert("UTC")
-
-    limit = 200 if _live_mode else 100
-
-    # Load motion data from audio_samples
-    docs = (
-        db.collection("audio_samples")
-        .where("timestamp", ">=", int(start.timestamp() * 1000))
-        .order_by("timestamp", direction=firestore.Query.DESCENDING)
-        .limit(limit)
-        .stream()
-    )
-    df = pd.DataFrame([d.to_dict() for d in docs])
-
-    # Fallback: if no data today, grab most recent docs
-    if df.empty:
-        docs_fb = (
-            db.collection("audio_samples")
-            .order_by("timestamp", direction=firestore.Query.DESCENDING)
-            .limit(50)
-            .stream()
-        )
-        df = pd.DataFrame([d.to_dict() for d in docs_fb])
-
-    # Also load from sensor_samples to get gyro data
-    gyro_docs = (
-        db.collection("sensor_samples")
-        .where("timestamp", ">=", int(start.timestamp() * 1000))
-        .order_by("timestamp", direction=firestore.Query.DESCENDING)
-        .limit(limit)
-        .stream()
-    )
-    gyro_df = pd.DataFrame([d.to_dict() for d in gyro_docs])
-
-    # Fallback for gyro data
-    if gyro_df.empty:
-        gyro_docs_fb = (
-            db.collection("sensor_samples")
-            .order_by("timestamp", direction=firestore.Query.DESCENDING)
-            .limit(50)
-            .stream()
-        )
-        gyro_df = pd.DataFrame([d.to_dict() for d in gyro_docs_fb])
-
-    if df.empty and gyro_df.empty:
-        return df
-
-    # Convert timestamps
-    if not df.empty:
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True).dt.tz_convert(ist)
-
-        # Rename motion fields to expected names for dashboard
-        if "accel_magnitude" in df.columns:
-            df["accelMag"] = df["accel_magnitude"]
-        if "gyro_magnitude" in df.columns:
-            df["gyroMag"] = df["gyro_magnitude"]
-
-    # Merge gyro data if available
-    if not gyro_df.empty:
-        gyro_df["timestamp"] = pd.to_datetime(gyro_df["timestamp"], unit="ms", utc=True).dt.tz_convert(ist)
-
-        # Keep sensor_samples data (already correctly named: gyroX, gyroY, gyroZ, heartRate, accelMag)
-        sensor_cols = ["timestamp", "gyroX", "gyroY", "gyroZ", "heartRate", "accelMag", "light"]
-        sensor_cols = [c for c in sensor_cols if c in gyro_df.columns]  # Only keep columns that exist
-
-        # Merge on timestamp (left join to keep audio_samples as primary)
-        if not df.empty:
-            df = pd.merge_asof(
-                df.sort_values("timestamp"),
-                gyro_df[sensor_cols].sort_values("timestamp"),
-                on="timestamp",
-                direction="nearest",
-                tolerance=pd.Timedelta("1s"),
-                suffixes=("_audio", "_sensor")
-            )
-            # Prefer sensor_samples data, but fall back to audio_samples summary values
-            # when the timestamp merge misses and the sensor-side fields are null.
-            if "heartRate" in df.columns and "heart_rate" in df.columns:
-                df["heartRate"] = df["heartRate"].combine_first(df["heart_rate"])
-            elif "heart_rate" in df.columns:
-                df["heartRate"] = df["heart_rate"]
-
-            if "accelMag_sensor" in df.columns and "accelMag_audio" in df.columns:
-                df["accelMag"] = df["accelMag_sensor"].combine_first(df["accelMag_audio"])
-                df = df.drop(columns=["accelMag_sensor", "accelMag_audio"])
-            elif "accelMag_sensor" in df.columns:
-                df["accelMag"] = df["accelMag_sensor"]
-                df = df.drop(columns=["accelMag_sensor"])
-
-            df = df.drop(columns=[c for c in ["heart_rate", "accel_magnitude"] if c in df.columns])
-        else:
-            # If no audio data, use sensor data as the base
-            df = gyro_df[sensor_cols].copy()
-
-    # Smooth acceleration (after merge to use sensor data)
-    if not df.empty and "accelMag" in df.columns:
-        df["accelMag_smooth"] = df["accelMag"].rolling(5, min_periods=1).mean()
-
-    return df.sort_values("timestamp") if not df.empty else df
-
-@st.cache_data(ttl=300 if not live_mode else 30)
-def load_audio_data(_live_mode):
-    """Load audio data with Firebase quota optimization."""
-    ist = pytz.timezone("Asia/Kolkata")
-    start = pd.Timestamp.now(tz=ist).normalize().tz_convert("UTC")
-
-    limit = 100 if _live_mode else 50
-
-    docs = (
-        db.collection("audio_samples")
-        .where("timestamp", ">=", int(start.timestamp() * 1000))
-        .order_by("timestamp", direction=firestore.Query.DESCENDING)
-        .limit(limit)
-        .stream()
-    )
-    df = pd.DataFrame([d.to_dict() for d in docs])
-
-    if df.empty:
-        docs_fb = (
-            db.collection("audio_samples")
-            .order_by("timestamp", direction=firestore.Query.DESCENDING)
-            .limit(30)
-            .stream()
-        )
-        df = pd.DataFrame([d.to_dict() for d in docs_fb])
-
-    if df.empty:
-        return df
-
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True).dt.tz_convert(ist)
-    return df.sort_values("timestamp")
-
-@st.cache_data(ttl=60)
-def load_cmai_detections(_live_mode):
-    """Load keyword-based alerts from audio_samples top_keywords."""
-    ist = pytz.timezone("Asia/Kolkata")
-    start = pd.Timestamp.now(tz=ist).normalize().tz_convert("UTC")
-
-    # Get recent audio samples with high agitation scores and keywords
-    docs = (
-        db.collection("audio_samples")
-        .where("timestamp", ">=", int(start.timestamp() * 1000))
-        .order_by("timestamp", direction=firestore.Query.DESCENDING)
-        .limit(50)
-        .stream()
-    )
-
-    alerts = []
-    for doc in docs:
-        data = doc.to_dict()
-        keywords = data.get("top_keywords", [])
-        score = data.get("combined_agitation_score", 0)
-
-        # Only create alerts for high-agitation speech with detected keywords
-        if keywords and score > 0.5:
-            for kw in keywords:
-                if isinstance(kw, dict) and "keyword" in kw:
-                    keyword_text = kw.get("keyword", "").lower()
-                    category = kw.get("category", "")
-
-                    # Trigger alert for pain/hurt keywords
-                    if any(word in keyword_text for word in ["pain", "hurt", "help", "distress"]):
-                        alerts.append({
-                            "timestamp": data.get("timestamp"),
-                            "cmai_item": 22,
-                            "behaviour": f"Speech keyword detected: {keyword_text}",
-                            "confidence_level": "HIGH" if score > 0.7 else "MEDIUM",
-                            "transcription": "",
-                            "detected_keywords": [keyword_text],
-                            "contributing_scores": {
-                                "speech": data.get("speech_detection_score", 0),
-                                "acoustic": data.get("acoustic_score", 0),
-                                "motion": data.get("motion_score", 0)
-                            }
-                        })
-
-    df = pd.DataFrame(alerts)
-    if df.empty:
-        return df
-
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True).dt.tz_convert(ist)
-    return df.sort_values("timestamp", ascending=False)
 
 # Load data
 sensor_df = load_sensor_data(live_mode)
 audio_df = load_audio_data(live_mode)
+camera_df = load_camera_data(live_mode)
 cmai_df = load_cmai_detections(live_mode)
 
 # Update cache
@@ -451,400 +76,7 @@ st.session_state.cached_sensor_df = sensor_df
 st.session_state.cached_audio_df = audio_df
 st.session_state.last_fetch_time = datetime.now()
 
-# ════════════════════════════════════════════════════════════════
-#  HELPER FUNCTIONS
-# ════════════════════════════════════════════════════════════════
-def latest_val(df, col, fmt=".1f"):
-    if df.empty or col not in df.columns:
-        return "—"
-    v = df[col].dropna()
-    if v.empty:
-        return "—"
-    return f"{v.iloc[-1]:{fmt}}"
 
-def safe_get_stats(df, col, window=20):
-    """Safely compute statistics for a column."""
-    if df.empty or col not in df.columns:
-        return {"available": False}
-    recent = df[col].dropna().tail(window)
-    if len(recent) < 3:
-        return {"available": False}
-    return {
-        "available": True,
-        "current": recent.iloc[-1],
-        "mean": recent.mean(),
-        "std": recent.std() if len(recent) > 1 else 0,
-        "min": recent.min(),
-        "max": recent.max(),
-    }
-
-def safe_get_val(df, col):
-    """Safely get latest value from dataframe."""
-    if df.empty or col not in df.columns:
-        return None
-    v = df[col].dropna()
-    return v.iloc[-1] if not v.empty else None
-
-def count_sign_changes(series):
-    """Count oscillations: rapid acceleration changes (up/down motion)."""
-    if series.empty or len(series) < 2:
-        return 0
-    # Look at deltas (changes) in acceleration magnitude
-    deltas = series.diff().dropna()
-    if len(deltas) < 2:
-        return 0
-    # Count how many times the delta changes sign (acceleration reversals)
-    sign_changes = 0
-    prev_sign = None
-    for val in deltas:
-        if val is not None and val != 0:
-            current_sign = 1 if val > 0 else -1
-            if prev_sign is not None and current_sign != prev_sign:
-                sign_changes += 1
-            prev_sign = current_sign
-    return sign_changes
-
-# ════════════════════════════════════════════════════════════════
-#  CMAI DETECTION RULES (Rule-based, no ML)
-#  CALIBRATED FOR SAMSUNG GALAXY WATCH 4 MICROPHONE
-# ════════════════════════════════════════════════════════════════
-def detect_cmai_behaviours(sensor_df, audio_df):
-    """
-    Rule-based CMAI behaviour detection using CALIBRATED thresholds
-    for Samsung Galaxy Watch 4 microphone characteristics.
-
-    Thresholds calibrated from actual watch data:
-    - Normal audio energy: 1000-2000
-    - Elevated (loud) energy: 2500-4000+
-    - Normal pitch: 80-150 Hz
-    - Elevated pitch: 150-200+ Hz
-    - Normal spectral centroid: 1000-2000 Hz
-    - Elevated (harsh) centroid: 2500-4000+ Hz
-    """
-    detections = []
-
-    # Get current values
-    energy = safe_get_val(audio_df, "audio_energy")
-    pitch = safe_get_val(audio_df, "pitch")
-    zcr = safe_get_val(audio_df, "zcr")
-    spectral_centroid = safe_get_val(audio_df, "spectral_centroid")
-    spectral_flux = safe_get_val(audio_df, "spectral_flux")
-    speech_ratio = safe_get_val(audio_df, "speech_ratio")
-    energy_variance = safe_get_val(audio_df, "energy_variance")
-    spectral_bandwidth = safe_get_val(audio_df, "spectral_bandwidth")
-
-    accel = safe_get_val(sensor_df, "accelMag_smooth")
-    hr = safe_get_val(sensor_df, "heartRate")
-    gyro_mag = safe_get_val(sensor_df, "gyroMag")
-
-
-    # ═══════════════════════════════════════════════════════════
-    # COMPUTE BASELINE STATISTICS FOR RELATIVE DETECTION
-    # ═══════════════════════════════════════════════════════════
-    energy_stats = safe_get_stats(audio_df, "audio_energy", window=10)
-    pitch_stats = safe_get_stats(audio_df, "pitch", window=10)
-    sc_stats = safe_get_stats(audio_df, "spectral_centroid", window=10)
-
-    # ═══════════════════════════════════════════════════════════
-    # AUDIO-BASED DETECTIONS (CMAI Verbal Behaviours)
-    # THRESHOLDS CALIBRATED FOR WATCH MICROPHONE
-    # ═══════════════════════════════════════════════════════════
-
-    # CMAI Item 22: Screaming / Loud Vocalization
-    # CALIBRATED: Watch mic shows ~3000-4000 energy for loud sounds
-    # IMPORTANT: Only detect if energy > 1500 (meaningful sound level)
-    if all(v is not None for v in [energy, spectral_centroid]) and energy > 1500:
-        # Count how many indicators are elevated
-        scream_indicators = 0
-
-        # High energy (above 2500 is elevated for watch mic)
-        if energy > 2500:
-            scream_indicators += 1
-        if energy > 3500:
-            scream_indicators += 1  # Extra point for very high
-
-        # High spectral centroid (brightness/harshness)
-        if spectral_centroid > 2500:
-            scream_indicators += 1
-        if spectral_centroid > 3500:
-            scream_indicators += 1
-
-        # Elevated pitch (above normal speech)
-        if pitch is not None and pitch > 150:
-            scream_indicators += 1
-        if pitch is not None and pitch > 200:
-            scream_indicators += 1
-
-        # High ZCR (harsh sounds)
-        if zcr is not None and zcr > 0.15:
-            scream_indicators += 1
-
-        # Relative detection: current >> baseline
-        if energy_stats["available"] and energy is not None:
-            if energy > energy_stats["mean"] + 2 * energy_stats["std"]:
-                scream_indicators += 1
-
-        # Decision based on number of indicators
-        if scream_indicators >= 5:
-            detections.append({
-                "cmai_item": 22,
-                "behaviour": "Screaming / Loud Vocalization",
-                "confidence": "HIGH",
-                "evidence": f"Energy={energy:.0f}, SC={spectral_centroid:.0f}Hz, Pitch={pitch:.0f}Hz" if pitch else f"Energy={energy:.0f}, SC={spectral_centroid:.0f}Hz",
-                "category": "verbal"
-            })
-        elif scream_indicators >= 3:
-            detections.append({
-                "cmai_item": 22,
-                "behaviour": "Loud Vocalization",
-                "confidence": "MEDIUM",
-                "evidence": f"Energy={energy:.0f}, SC={spectral_centroid:.0f}Hz ({scream_indicators} indicators)",
-                "category": "verbal"
-            })
-
-    # CMAI Item 26: Strange noises (peculiar sounds, grunts, moans)
-    # Clapping, banging, sudden impact sounds
-    # IMPORTANT: Only detect if there's actually significant sound (energy > 500)
-    if all(v is not None for v in [energy, zcr]) and energy > 500:
-        strange_indicators = 0
-
-        # High ZCR indicates non-speech noise
-        if zcr > 0.2:
-            strange_indicators += 1
-        if zcr > 0.3:
-            strange_indicators += 1
-
-        # Elevated energy (must be meaningful, not just ambient)
-        if energy > 2000:
-            strange_indicators += 1
-
-        # Low speech ratio (not normal speech) - only count if energy is significant
-        if speech_ratio is not None and speech_ratio < 0.4 and energy > 1000:
-            strange_indicators += 1
-
-        # High energy variance (irregular sound)
-        if energy_variance is not None and energy_variance > 1.0:
-            strange_indicators += 1
-
-        # Wide bandwidth (broadband noise like clapping)
-        if spectral_bandwidth is not None and spectral_bandwidth > 2000:
-            strange_indicators += 1
-
-        if strange_indicators >= 4:
-            detections.append({
-                "cmai_item": 26,
-                "behaviour": "Strange Noises / Impact Sounds",
-                "confidence": "HIGH",
-                "evidence": f"ZCR={zcr:.3f}, Energy={energy:.0f}, SpeechRatio={speech_ratio:.2f}" if speech_ratio else f"ZCR={zcr:.3f}, Energy={energy:.0f}",
-                "category": "verbal"
-            })
-        elif strange_indicators >= 3:  # Raised from 2 to 3 to reduce false positives
-            detections.append({
-                "cmai_item": 26,
-                "behaviour": "Unusual Sounds",
-                "confidence": "MEDIUM",
-                "evidence": f"ZCR={zcr:.3f}, Energy={energy:.0f}",
-                "category": "verbal"
-            })
-
-    # CMAI Item 24: Verbal aggression / Agitated speech
-    # IMPORTANT: Only detect if energy > 1000 (actual speech, not silence)
-    if all(v is not None for v in [energy, speech_ratio]) and energy > 1000:
-        verbal_indicators = 0
-
-        # High speech ratio (lots of talking)
-        if speech_ratio > 0.5:
-            verbal_indicators += 1
-        if speech_ratio > 0.7:
-            verbal_indicators += 1
-
-        # Elevated energy while speaking
-        if energy > 2000:
-            verbal_indicators += 1
-        if energy > 3000:
-            verbal_indicators += 1
-
-        # Elevated pitch
-        if pitch is not None and pitch > 140:
-            verbal_indicators += 1
-
-        # High spectral centroid (tense voice)
-        if spectral_centroid is not None and spectral_centroid > 2000:
-            verbal_indicators += 1
-
-        if verbal_indicators >= 4:
-            detections.append({
-                "cmai_item": 24,
-                "behaviour": "Verbal Agitation",
-                "confidence": "HIGH",
-                "evidence": f"Speech={speech_ratio:.0%}, Energy={energy:.0f}, Pitch={pitch:.0f}Hz" if pitch else f"Speech={speech_ratio:.0%}, Energy={energy:.0f}",
-                "category": "verbal"
-            })
-        elif verbal_indicators >= 2:
-            detections.append({
-                "cmai_item": 24,
-                "behaviour": "Elevated Speech",
-                "confidence": "MEDIUM",
-                "evidence": f"Speech={speech_ratio:.0%}, Energy={energy:.0f}",
-                "category": "verbal"
-            })
-
-    # CMAI Item 25: Constant vocalization
-    # Only detect if there's actual speech (energy > 500)
-    if speech_ratio is not None and speech_ratio > 0.6 and energy is not None and energy > 500:
-        detections.append({
-            "cmai_item": 25,
-            "behaviour": "Continuous Vocalization",
-            "confidence": "MEDIUM" if speech_ratio > 0.8 else "LOW",
-            "evidence": f"Speech ratio={speech_ratio:.0%}",
-            "category": "verbal"
-        })
-
-    # ═══════════════════════════════════════════════════════════
-    # SUDDEN SOUND DETECTION (Clapping, Banging, etc.)
-    # Only detect if energy is significant (not ambient noise)
-    # ═══════════════════════════════════════════════════════════
-    if spectral_flux is not None and energy is not None:
-        if spectral_flux > 1000 and energy > 2500:
-            detections.append({
-                "cmai_item": 26,
-                "behaviour": "Sudden Loud Sound (Clap/Bang)",
-                "confidence": "HIGH",
-                "evidence": f"Flux={spectral_flux:.0f}, Energy={energy:.0f}",
-                "category": "verbal"
-            })
-
-    # ═══════════════════════════════════════════════════════════
-    # MOTION-BASED DETECTIONS (CMAI Physical Behaviours)
-    # ═══════════════════════════════════════════════════════════
-
-    # CMAI Item 12: Pacing, aimless wandering + HIGH ENERGY OSCILLATIONS
-    # Research basis: Sustained moderate movement without rest OR rapid repetitive motion
-    if accel is not None:
-        # Calculate movement statistics
-        accel_stats = safe_get_stats(sensor_df, "accelMag_smooth", window=30)
-        if accel_stats["available"]:
-            # Original: Sustained movement with low variance = pacing
-            if accel_stats["mean"] > 12 and accel_stats["std"] < 3:
-                detections.append({
-                    "cmai_item": 12,
-                    "behaviour": "Pacing/wandering",
-                    "confidence": "MEDIUM",
-                    "evidence": f"Sustained movement={accel_stats['mean']:.1f}, σ={accel_stats['std']:.2f}",
-                    "category": "physical"
-                })
-
-            # NEW: High-energy oscillatory motion (hand shaking, tremor, fidgeting)
-            elif accel_stats["mean"] > 8 and accel_stats["std"] >= 3:
-                # Rapid variation in acceleration = oscillation
-                recent_accel = sensor_df["accelMag_smooth"].dropna().tail(30)
-                if len(recent_accel) >= 10:
-                    # Count how many times acceleration changes direction rapidly
-                    accel_deltas = recent_accel.diff().dropna()
-                    high_variance_count = (accel_deltas.abs() > 5).sum()
-
-                    if high_variance_count >= 10:  # Many rapid changes
-                        detections.append({
-                            "cmai_item": 12,
-                            "behaviour": "Agitated Fidgeting/Tremor",
-                            "confidence": "MEDIUM",
-                            "evidence": f"Mean={accel_stats['mean']:.1f}, σ={accel_stats['std']:.2f}, Rapid changes={high_variance_count}",
-                            "category": "physical"
-                        })
-
-    # CMAI Item 20: Repetitive mannerisms (oscillatory movements - hand up/down)
-    # Detection: Use gyroX to detect hand up-down oscillations
-    # Get last 30 samples of gyroX and count sign changes
-    if "gyroX" in sensor_df.columns:
-        recent_gyroX = sensor_df["gyroX"].dropna().tail(30)
-        if len(recent_gyroX) >= 10:
-            # Count sign changes directly in gyroX values (not deltas)
-            sign_changes = 0
-            prev_sign = None
-            for val in recent_gyroX:
-                if val is not None and val != 0:
-                    current_sign = 1 if val > 0 else -1
-                    if prev_sign is not None and current_sign != prev_sign:
-                        sign_changes += 1
-                    prev_sign = current_sign
-
-            # Many sign changes = oscillatory motion (hand up/down)
-            if sign_changes >= 4:  # 4+ reversals in ~30 samples = oscillation
-                detections.append({
-                    "cmai_item": 20,
-                    "behaviour": "Repetitive Mannerisms (Hand Oscillation)",
-                    "confidence": "HIGH" if sign_changes >= 8 else "MEDIUM",
-                    "evidence": f"GyroX sign changes={sign_changes}/30",
-                    "category": "physical"
-                })
-
-    # CMAI Item 21: General restlessness
-    # Research basis: High movement + elevated HR + high variance
-    if all(v is not None for v in [accel, hr]):
-        accel_stats = safe_get_stats(sensor_df, "accelMag_smooth", window=20)
-        hr_stats = safe_get_stats(sensor_df, "heartRate", window=20)
-        if accel_stats["available"] and hr_stats["available"]:
-            if accel_stats["mean"] > 15 and accel_stats["std"] > 5 and hr_stats["current"] > 90:
-                detections.append({
-                    "cmai_item": 21,
-                    "behaviour": "General restlessness",
-                    "confidence": "MEDIUM",
-                    "evidence": f"Move={accel_stats['mean']:.1f}±{accel_stats['std']:.1f}, HR={hr_stats['current']:.0f}",
-                    "category": "physical"
-                })
-
-
-    # ═══════════════════════════════════════════════════════════
-    # COMPOSITE DETECTIONS
-    # ═══════════════════════════════════════════════════════════
-
-    # Combined agitation indicator (high arousal state)
-    arousal_indicators = 0
-    if energy is not None and energy > 3000:
-        arousal_indicators += 1
-    if pitch is not None and pitch > 250:
-        arousal_indicators += 1
-    if accel is not None and accel > 15:
-        arousal_indicators += 1
-    if hr is not None and hr > 95:
-        arousal_indicators += 1
-
-    if arousal_indicators >= 3:
-        detections.append({
-            "cmai_item": 0,
-            "behaviour": "High arousal state",
-            "confidence": "HIGH",
-            "evidence": f"{arousal_indicators}/4 indicators elevated",
-            "category": "composite"
-        })
-
-    return detections
-
-# ════════════════════════════════════════════════════════════════
-#  PLOTLY THEME TOKENS
-# ════════════════════════════════════════════════════════════════
-BG      = "rgba(0,0,0,0)"
-GRID    = "rgba(255,255,255,.06)"
-FONT_C  = "#94a3b8"
-ACCENT  = ["#38bdf8", "#f472b6", "#a78bfa", "#34d399", "#fbbf24", "#fb923c"]
-
-def style_fig(fig, height=280):
-    fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor=BG,
-        plot_bgcolor=BG,
-        margin=dict(l=0, r=10, t=30, b=0),
-        height=height,
-        font=dict(family="Inter", color=FONT_C, size=12),
-        legend=dict(orientation="h", yanchor="top", y=1.12, xanchor="left", x=0,
-                    font=dict(size=11)),
-        xaxis=dict(showgrid=False),
-        yaxis=dict(gridcolor=GRID, gridwidth=1),
-        hovermode="x unified",
-    )
-    return fig
-
-# ════════════════════════════════════════════════════════════════
 #  RUN CMAI DETECTION
 # ════════════════════════════════════════════════════════════════
 detected_behaviours = detect_cmai_behaviours(sensor_df, audio_df)
@@ -871,7 +103,7 @@ elif len(detected_behaviours) == 1 and detected_behaviours[0]["confidence"] == "
 # ════════════════════════════════════════════════════════════════
 #  TAB NAVIGATION
 # ════════════════════════════════════════════════════════════════
-tab_dashboard, tab_cmai, tab_audio = st.tabs(["📊 Live Dashboard", "🧠 CMAI Detection", "🎵 Audio Analysis"])
+tab_dashboard, tab_unified, tab_cmai, tab_audio = st.tabs(["📊 Live Dashboard", "🔄 Unified Data", "🧠 CMAI Detection", "🎵 Audio Analysis"])
 
 # ════════════════════════════════════════════════════════════════
 #  TAB 1: LIVE DASHBOARD
@@ -895,7 +127,11 @@ with tab_dashboard:
         st.metric("❤️ Heart Rate", latest_val(sensor_df, "heartRate", ".0f"))
 
     with r1c3:
-        st.metric("🏃 Movement", latest_val(sensor_df, "accelMag_smooth"))
+        spo2_display = latest_val(sensor_df, "spo2", ".0f")
+        if spo2_display != "—":
+            st.metric("SpO2", f"{spo2_display}%")
+        else:
+            st.metric("🏃 Movement", latest_val(sensor_df, "accelMag_smooth"))
 
     with r1c4:
         st.metric("🗣️ Speech Ratio", latest_val(audio_df, "speech_ratio", ".2f"))
@@ -1081,7 +317,7 @@ with tab_dashboard:
     # ═══════════════════════════════════════════════════════════
     st.markdown("<p class='section-header'>🔎 &nbsp;SUPPLEMENTARY</p>", unsafe_allow_html=True)
 
-    bot1, bot2 = st.columns(2)
+    bot1, bot2, bot3 = st.columns(3)
 
     with bot1:
         st.markdown("###### 💡 Ambient Light")
@@ -1109,9 +345,454 @@ with tab_dashboard:
         else:
             st.caption("New audio features not yet available")
 
+    with bot3:
+        st.markdown("###### 🩸 SpO2 Analysis")
+        latest_spo2 = safe_get_val(sensor_df, "spo2")
+        if latest_spo2 is not None:
+            spo2_label, spo2_color = describe_spo2(latest_spo2)
+            st.metric("SpO2", f"{latest_spo2:.0f}%")
+            st.markdown(
+                f"<div style='padding:10px 12px; border-radius:8px; background: rgba(30,30,47,0.6); "
+                f"border-left: 4px solid {spo2_color}; margin-bottom: 10px;'>{spo2_label}</div>",
+                unsafe_allow_html=True,
+            )
+            spo2_recent = safe_get_recent(sensor_df, "spo2", window=30)
+            if not spo2_recent.empty and len(spo2_recent) > 1:
+                spo2_ts = sensor_df.loc[spo2_recent.index, "timestamp"]
+                fig_spo2 = go.Figure()
+                fig_spo2.add_trace(go.Scatter(
+                    x=spo2_ts,
+                    y=spo2_recent,
+                    name="SpO2",
+                    line=dict(color=ACCENT[3], width=2),
+                    mode="lines+markers",
+                ))
+                fig_spo2.add_hline(y=94, line_dash="dot", line_color="#f59e0b")
+                fig_spo2.add_hline(y=90, line_dash="dot", line_color="#ef4444")
+                fig_spo2.update_yaxes(range=[min(85, spo2_recent.min() - 1), max(100, spo2_recent.max() + 1)])
+                style_fig(fig_spo2, height=180)
+                st.plotly_chart(fig_spo2, width='stretch')
+            else:
+                st.caption("Waiting for more SpO2 samples")
+        else:
+            # Show diagnostics if the watch is uploading status fields
+            sdk_avail = safe_get_val(sensor_df, "spo2_sdk_available")
+            connected = safe_get_val(sensor_df, "spo2_connected")
+            supported = safe_get_val(sensor_df, "spo2_supported")
+            status = safe_get_val(sensor_df, "spo2_status")
+
+            if sdk_avail is not None:
+                st.info(
+                    f"SpO2 not measured yet. Diagnostics: "
+                    f"sdk_available={sdk_avail}, connected={connected}, supported={supported}, status={status}"
+                )
+                if not bool(sdk_avail):
+                    st.caption("To enable SpO2 on Galaxy Watch, add Samsung Health Sensor SDK .aar into the watch app's app/libs/ folder and rebuild.")
+                elif connected is False:
+                    st.caption("Samsung Health sensor service not connected yet. Ensure Samsung Health is installed/available on the watch and reopen the app.")
+                elif supported is False:
+                    st.caption("This watch does not report SPO2_ON_DEMAND via Samsung SDK (model/firmware dependent).")
+                else:
+                    st.caption("SpO2 measurement requested; waiting for completion.")
+            else:
+                st.caption("No SpO2 data from watch yet")
+
 
 # ════════════════════════════════════════════════════════════════
-#  TAB 2: CMAI DETECTION
+#  TAB 2: UNIFIED DATA (Multi-source integration)
+# ════════════════════════════════════════════════════════════════
+with tab_unified:
+    st.markdown("## 🔄 Unified Multi-Source Data")
+
+    # Extract patient ID (should be same across all sources)
+    patient_id = "—"
+    if not sensor_df.empty and "patient_id" in sensor_df.columns:
+        pid_vals = sensor_df["patient_id"].dropna().unique()
+        if len(pid_vals) > 0:
+            patient_id = pid_vals[0]
+    elif not audio_df.empty and "patient_id" in audio_df.columns:
+        pid_vals = audio_df["patient_id"].dropna().unique()
+        if len(pid_vals) > 0:
+            patient_id = pid_vals[0]
+    elif not camera_df.empty and "patient_id" in camera_df.columns:
+        pid_vals = camera_df["patient_id"].dropna().unique()
+        if len(pid_vals) > 0:
+            patient_id = pid_vals[0]
+
+    # Display patient ID prominently
+    st.markdown(f"**Patient ID:** `{patient_id}`", help="Unique patient identifier across all data sources")
+
+    st.markdown("""
+    <div class='research-note'>
+        <strong>Multi-Source Integration</strong>: View synchronized data from sensor, camera, and audio sources grouped by recording cycle.
+        All timestamps and cycle IDs are aligned for cross-modal analysis.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ════════════════════════════════════════════════════════════════
+    # UNIFIED SUMMARY BY CYCLE
+    # ════════════════════════════════════════════════════════════════
+    st.markdown("<p class='section-header'>📋 &nbsp;CYCLE SUMMARY</p>", unsafe_allow_html=True)
+
+    # Collect all cycle_ids from all three sources
+    all_cycles = set()
+    if not sensor_df.empty and "cycle_id" in sensor_df.columns:
+        all_cycles.update(sensor_df["cycle_id"].dropna().unique())
+    if not audio_df.empty and "cycle_id" in audio_df.columns:
+        all_cycles.update(audio_df["cycle_id"].dropna().unique())
+    if not camera_df.empty and "cycle_id" in camera_df.columns:
+        all_cycles.update(camera_df["cycle_id"].dropna().unique())
+
+    if all_cycles:
+        # Sort cycles descending (newest first)
+        sorted_cycles = sorted(all_cycles, reverse=True)
+
+        # Display cycle summary table
+        cycle_summary = []
+        for cycle_id in sorted_cycles[:10]:  # Show last 10 cycles
+            sensor_count = len(sensor_df[sensor_df["cycle_id"] == cycle_id]) if not sensor_df.empty else 0
+            audio_count = len(audio_df[audio_df["cycle_id"] == cycle_id]) if not audio_df.empty else 0
+            camera_count = len(camera_df[camera_df["cycle_id"] == cycle_id]) if not camera_df.empty else 0
+
+            # Get latest data from each source for this cycle
+            sensor_ts = sensor_df[sensor_df["cycle_id"] == cycle_id]["timestamp"].max() if sensor_count > 0 else None
+            audio_ts = audio_df[audio_df["cycle_id"] == cycle_id]["timestamp"].max() if audio_count > 0 else None
+            camera_ts = camera_df[camera_df["cycle_id"] == cycle_id]["timestamp"].max() if camera_count > 0 else None
+
+            latest_hr = None
+            if sensor_count > 0 and "heartRate" in sensor_df.columns:
+                hr_vals = sensor_df[sensor_df["cycle_id"] == cycle_id]["heartRate"].dropna()
+                if not hr_vals.empty:
+                    latest_hr = f"{hr_vals.iloc[-1]:.0f}"
+
+            latest_posture = None
+            if camera_count > 0 and "posture" in camera_df.columns:
+                posture_vals = camera_df[camera_df["cycle_id"] == cycle_id]["posture"].dropna()
+                if not posture_vals.empty:
+                    latest_posture = posture_vals.iloc[-1]
+
+            latest_agitation = None
+            if audio_count > 0 and "combined_agitation_score" in audio_df.columns:
+                agit_vals = audio_df[audio_df["cycle_id"] == cycle_id]["combined_agitation_score"].dropna()
+                if not agit_vals.empty:
+                    latest_agitation = f"{agit_vals.iloc[-1]:.2f}"
+
+            cycle_summary.append({
+                "Cycle ID": int(cycle_id),
+                "Sensor Samples": sensor_count,
+                "Audio Samples": audio_count,
+                "Camera Samples": camera_count,
+                "Latest HR": latest_hr or "—",
+                "Posture": latest_posture or "—",
+                "Agitation": latest_agitation or "—"
+            })
+
+        if cycle_summary:
+            st.dataframe(pd.DataFrame(cycle_summary), hide_index=True, width='stretch')
+    else:
+        st.info("No data from any source yet. Waiting for recordings…")
+
+    st.markdown("---")
+
+    # ════════════════════════════════════════════════════════════════
+    # DETAILED PER-CYCLE BREAKDOWN
+    # ════════════════════════════════════════════════════════════════
+    st.markdown("<p class='section-header'>🔬 &nbsp;DETAILED CYCLE BREAKDOWN</p>", unsafe_allow_html=True)
+
+    if all_cycles:
+        sorted_cycles = sorted(all_cycles, reverse=True)
+
+        for cycle_id in sorted_cycles[:5]:  # Show detailed view for top 5 cycles
+            sensor_data = sensor_df[sensor_df["cycle_id"] == cycle_id] if not sensor_df.empty else pd.DataFrame()
+            audio_data = audio_df[audio_df["cycle_id"] == cycle_id] if not audio_df.empty else pd.DataFrame()
+            camera_data = camera_df[camera_df["cycle_id"] == cycle_id] if not camera_df.empty else pd.DataFrame()
+
+            sensor_count = len(sensor_data)
+            audio_count = len(audio_data)
+            camera_count = len(camera_data)
+
+            # Expander for each cycle
+            with st.expander(f"📊 Cycle {int(cycle_id)} — Sensor:{sensor_count} | Audio:{audio_count} | Camera:{camera_count}"):
+
+                # === SENSOR DATA ===
+                if sensor_count > 0:
+                    st.markdown("##### 📈 Sensor Data")
+
+                    # Statistics
+                    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+                    with col_s1:
+                        if "heartRate" in sensor_data.columns:
+                            hr_vals = sensor_data["heartRate"].dropna()
+                            if not hr_vals.empty:
+                                st.metric("HR (avg)", f"{hr_vals.mean():.0f}")
+                        else:
+                            st.caption("—")
+                    with col_s2:
+                        if "accelMag" in sensor_data.columns:
+                            accel_vals = sensor_data["accelMag"].dropna()
+                            if not accel_vals.empty:
+                                st.metric("Accel (avg)", f"{accel_vals.mean():.2f}")
+                        else:
+                            st.caption("—")
+                    with col_s3:
+                        if "light" in sensor_data.columns:
+                            light_vals = sensor_data["light"].dropna()
+                            if not light_vals.empty:
+                                st.metric("Light (avg)", f"{light_vals.mean():.0f}")
+                        else:
+                            st.caption("—")
+                    with col_s4:
+                        if "spo2" in sensor_data.columns:
+                            spo2_vals = sensor_data["spo2"].dropna()
+                            if not spo2_vals.empty:
+                                st.metric("SpO2 (avg)", f"{spo2_vals.mean():.1f}%")
+                        else:
+                            st.caption("—")
+
+                    # Detailed table
+                    with st.expander("View all sensor samples"):
+                        cols_to_show = ["timestamp", "heartRate", "accelMag", "gyroX", "light", "spo2"]
+                        cols_available = [c for c in cols_to_show if c in sensor_data.columns]
+                        st.dataframe(sensor_data[cols_available], width='stretch')
+                else:
+                    st.caption("ℹ️ No sensor data in this cycle")
+
+                st.markdown("---")
+
+                # === AUDIO DATA ===
+                if audio_count > 0:
+                    st.markdown("##### 🎤 Audio Data")
+
+                    # Statistics
+                    col_a1, col_a2, col_a3, col_a4 = st.columns(4)
+                    with col_a1:
+                        if "audio_energy" in audio_data.columns:
+                            energy_vals = audio_data["audio_energy"].dropna()
+                            if not energy_vals.empty:
+                                st.metric("Energy (avg)", f"{energy_vals.mean():.0f}")
+                        else:
+                            st.caption("—")
+                    with col_a2:
+                        if "combined_agitation_score" in audio_data.columns:
+                            agit_vals = audio_data["combined_agitation_score"].dropna()
+                            if not agit_vals.empty:
+                                st.metric("Agitation (avg)", f"{agit_vals.mean():.2f}")
+                        else:
+                            st.caption("—")
+                    with col_a3:
+                        if "speech_ratio" in audio_data.columns:
+                            speech_vals = audio_data["speech_ratio"].dropna()
+                            if not speech_vals.empty:
+                                st.metric("Speech Ratio (avg)", f"{speech_vals.mean():.2%}")
+                        else:
+                            st.caption("—")
+                    with col_a4:
+                        if "pitch" in audio_data.columns:
+                            pitch_vals = audio_data["pitch"].dropna()
+                            if not pitch_vals.empty:
+                                st.metric("Pitch (avg)", f"{pitch_vals.mean():.0f}Hz")
+                        else:
+                            st.caption("—")
+
+                    # Detailed table
+                    with st.expander("View all audio samples"):
+                        cols_to_show = ["timestamp", "audio_energy", "combined_agitation_score", "speech_ratio", "pitch", "transcription"]
+                        cols_available = [c for c in cols_to_show if c in audio_data.columns]
+                        st.dataframe(audio_data[cols_available], width='stretch')
+                else:
+                    st.caption("ℹ️ No audio data in this cycle")
+
+                st.markdown("---")
+
+                # === CAMERA DATA ===
+                if camera_count > 0:
+                    st.markdown("##### 🎥 Camera Data")
+
+                    # Statistics
+                    col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+                    with col_c1:
+                        if "posture" in camera_data.columns:
+                            posture_counts = camera_data["posture"].value_counts()
+                            top_posture = posture_counts.index[0] if len(posture_counts) > 0 else "—"
+                            st.metric("Posture (most)", top_posture)
+                        else:
+                            st.caption("—")
+                    with col_c2:
+                        if "leg_angle" in camera_data.columns:
+                            leg_vals = camera_data["leg_angle"].dropna()
+                            if not leg_vals.empty:
+                                st.metric("Leg Angle (avg)", f"{leg_vals.mean():.1f}°")
+                        else:
+                            st.caption("—")
+                    with col_c3:
+                        if "elbow_speed" in camera_data.columns:
+                            elbow_vals = camera_data["elbow_speed"].dropna()
+                            if not elbow_vals.empty:
+                                st.metric("Elbow Speed (avg)", f"{elbow_vals.mean():.2f}")
+                        else:
+                            st.caption("—")
+                    with col_c4:
+                        if "hand_state" in camera_data.columns:
+                            hand_counts = camera_data["hand_state"].value_counts()
+                            top_hand = hand_counts.index[0] if len(hand_counts) > 0 else "—"
+                            st.metric("Hand State (most)", top_hand)
+                        else:
+                            st.caption("—")
+
+                    # Detailed table
+                    with st.expander("View all camera samples"):
+                        cols_to_show = ["timestamp", "posture", "hand_state", "leg_angle", "elbow_speed", "hitting/throwing"]
+                        cols_available = [c for c in cols_to_show if c in camera_data.columns]
+                        st.dataframe(camera_data[cols_available], width='stretch')
+                else:
+                    st.caption("ℹ️ No camera data in this cycle")
+
+    # ════════════════════════════════════════════════════════════════
+    # DETAILED UNIFIED VIEW
+    # ════════════════════════════════════════════════════════════════
+    st.markdown("<p class='section-header'>🔍 &nbsp;DETAILED CROSS-MODAL VIEW</p>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("##### 📊 Sensor Metrics")
+        if not sensor_df.empty:
+            latest_sensor = sensor_df.iloc[-1]
+            if "heartRate" in latest_sensor and latest_sensor["heartRate"] is not None:
+                st.metric("Latest HR", f"{latest_sensor['heartRate']:.0f}")
+            else:
+                st.metric("Latest HR", "—")
+
+            accel_smooth = latest_sensor.get('accelMag_smooth') if 'accelMag_smooth' in latest_sensor else None
+            accel = latest_sensor.get('accelMag') if 'accelMag' in latest_sensor else None
+            accel_val = accel_smooth if accel_smooth is not None else accel
+            if accel_val is not None:
+                st.metric("Movement", f"{accel_val:.2f}")
+            else:
+                st.metric("Movement", "—")
+
+            if "light" in latest_sensor and latest_sensor["light"] is not None:
+                st.metric("Light Level", f"{latest_sensor['light']:.0f}")
+            else:
+                st.metric("Light Level", "—")
+
+            if "gyroX" in latest_sensor and latest_sensor['gyroX'] is not None:
+                st.caption(f"GyroX: {latest_sensor['gyroX']:.4f}")
+        else:
+            st.caption("No sensor data")
+
+    with col2:
+        st.markdown("##### 🎥 Camera Metrics")
+        if not camera_df.empty:
+            latest_camera = camera_df.iloc[-1]
+            posture = latest_camera.get("posture", "—") if "posture" in latest_camera else "—"
+            st.metric("Posture", posture)
+
+            hand_state = latest_camera.get("hand_state", "—") if "hand_state" in latest_camera else "—"
+            st.metric("Hand State", hand_state)
+
+            if "leg_angle" in latest_camera and latest_camera.get("leg_angle") is not None:
+                st.metric("Leg Angle", f"{latest_camera['leg_angle']:.1f}°")
+
+            if "elbow_speed" in latest_camera and latest_camera.get("elbow_speed") is not None:
+                st.caption(f"Elbow Speed: {latest_camera['elbow_speed']:.2f}")
+        else:
+            st.caption("No camera data")
+
+    with col3:
+        st.markdown("##### 🎤 Audio Metrics")
+        if not audio_df.empty:
+            latest_audio = audio_df.iloc[-1]
+            agit_score = latest_audio.get("combined_agitation_score") if "combined_agitation_score" in latest_audio else None
+            if agit_score is not None:
+                agit_color = "#ef4444" if agit_score > 0.7 else "#f59e0b" if agit_score > 0.4 else "#22c55e"
+                st.markdown(f"<div style='font-size:1.5rem; font-weight:700; color:{agit_color};'>{agit_score:.2f}</div><div style='font-size:0.8rem; color:#94a3b8;'>Agitation Score</div>", unsafe_allow_html=True)
+
+            if "audio_energy" in latest_audio and latest_audio["audio_energy"] is not None:
+                st.metric("Audio Energy", f"{latest_audio['audio_energy']:.0f}")
+            else:
+                st.metric("Audio Energy", "—")
+
+            if "dominant_contributor" in latest_audio:
+                st.caption(f"Dominant: {latest_audio['dominant_contributor']}")
+        else:
+            st.caption("No audio data")
+
+    st.markdown("---")
+
+    # ════════════════════════════════════════════════════════════════
+    # SOURCE COMPARISON TIMELINE
+    # ════════════════════════════════════════════════════════════════
+    st.markdown("<p class='section-header'>⏱️ &nbsp;MULTI-SOURCE TIMELINE</p>", unsafe_allow_html=True)
+
+    timeline_data = []
+
+    # Add sensor data points
+    if not sensor_df.empty:
+        for _, row in sensor_df.tail(20).iterrows():
+            hr = row.get('heartRate')
+            if hr is not None:
+                metric_str = f"HR: {hr:.0f}"
+            else:
+                metric_str = "Accel data"
+            timeline_data.append({
+                "timestamp": row.get("timestamp"),
+                "source": "Sensor",
+                "cycle_id": row.get("cycle_id"),
+                "metric": metric_str,
+                "value": hr or row.get('accelMag')
+            })
+
+    # Add camera data points
+    if not camera_df.empty:
+        for _, row in camera_df.tail(20).iterrows():
+            timeline_data.append({
+                "timestamp": row.get("timestamp"),
+                "source": "Camera",
+                "cycle_id": row.get("cycle_id"),
+                "metric": f"Posture: {row.get('posture', 'N/A')}",
+                "value": None
+            })
+
+    # Add audio data points
+    if not audio_df.empty:
+        for _, row in audio_df.tail(20).iterrows():
+            agit_val = row.get('combined_agitation_score')
+            agit_str = f"{agit_val:.2f}" if agit_val is not None else 'N/A'
+            timeline_data.append({
+                "timestamp": row.get("timestamp"),
+                "source": "Audio",
+                "cycle_id": row.get("cycle_id"),
+                "metric": f"Agitation: {agit_str}",
+                "value": agit_val
+            })
+
+    if timeline_data:
+        timeline_df = pd.DataFrame(timeline_data)
+        timeline_df = timeline_df.sort_values("timestamp", ascending=False)
+
+        # Display as formatted list
+        for _, row in timeline_df.head(30).iterrows():
+            ts_str = row["timestamp"].strftime("%H:%M:%S") if hasattr(row["timestamp"], "strftime") else str(row["timestamp"])
+            color_map = {"Sensor": "#38bdf8", "Camera": "#34d399", "Audio": "#f472b6"}
+            source_color = color_map.get(row["source"], "#94a3b8")
+
+            cycle_val = row.get("cycle_id")
+            cycle_str = f"{int(cycle_val)}" if pd.notna(cycle_val) and cycle_val != "" else "—"
+
+            st.markdown(f"""
+            <div style='background: rgba(30,30,47,0.6); padding: 10px 14px; border-radius: 8px; margin: 4px 0;'>
+                <span style='color: {source_color}; font-weight: 600;'>● {row["source"]}</span>
+                <span style='color: #64748b; margin: 0 10px;'>{ts_str}</span>
+                <span style='color: #94a3b8;'>{row["metric"]}</span>
+                <span style='color: #475569; float: right;'>Cycle: {cycle_str}</span>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("No unified data to display")
+
+
+# ════════════════════════════════════════════════════════════════
+#  TAB 3: CMAI DETECTION
 # ════════════════════════════════════════════════════════════════
 with tab_cmai:
     st.markdown("## 🧠 CMAI Behaviour Detection")
@@ -1203,13 +884,15 @@ with tab_cmai:
     st.markdown("### 📋 Detection Rules Reference")
 
     rules_data = [
-        {"CMAI": 22, "Behaviour": "Screaming/Loud Vocalization", "Signal Thresholds": "Energy > 1500 + (Energy > 2500 OR SC > 2500 OR Pitch > 150)", "Basis": "Must have significant sound"},
-        {"CMAI": 26, "Behaviour": "Strange noises/Clapping", "Signal Thresholds": "Energy > 500 + (ZCR > 0.2 OR Flux > 1000) + 3+ indicators", "Basis": "Non-speech, requires sound"},
-        {"CMAI": 24, "Behaviour": "Verbal agitation", "Signal Thresholds": "Energy > 1000 + Speech > 0.5 + (Pitch > 140 OR SC > 2000)", "Basis": "Elevated speech"},
-        {"CMAI": 25, "Behaviour": "Continuous vocalization", "Signal Thresholds": "Energy > 500 + Speech ratio > 0.6", "Basis": "Sustained speech activity"},
-        {"CMAI": 12, "Behaviour": "Pacing/wandering", "Signal Thresholds": "Sustained movement > 12 AND σ < 3", "Basis": "Regular motion patterns"},
+        {"CMAI": 22, "Behaviour": "Screaming/Loud Vocalization", "Signal Thresholds": "Energy > 1500 + multi-indicator acoustic spike", "Basis": "Harsh, loud vocal output"},
+        {"CMAI": 22, "Behaviour": "Pain/Discomfort vocalization", "Signal Thresholds": "Pain keywords + speech > 20% + energy > 650", "Basis": "Keyword-confirmed distress"},
+        {"CMAI": 24, "Behaviour": "Verbal agitation/aggression", "Signal Thresholds": "Elevated speech OR keyword-confirmed distress/aggression", "Basis": "Speech tone + semantic cues"},
+        {"CMAI": 25, "Behaviour": "Continuous/repetitive vocalization", "Signal Thresholds": "Speech ratio > 0.6 OR repeated words over recent windows", "Basis": "Sustained or repetitive speech"},
+        {"CMAI": 26, "Behaviour": "Strange noises/negativism", "Signal Thresholds": "Non-speech impact acoustics OR refusal keywords", "Basis": "Acoustic anomaly + refusal language"},
+        {"CMAI": 27, "Behaviour": "Calling out for help", "Signal Thresholds": "Help/caregiver keywords + speech + energy gate", "Basis": "Direct verbal help-seeking"},
+        {"CMAI": 12, "Behaviour": "Pacing/fidgeting", "Signal Thresholds": "Sustained movement OR oscillatory accel changes", "Basis": "Regular or restless motion"},
         {"CMAI": 20, "Behaviour": "Repetitive mannerisms", "Signal Thresholds": "GyroX sign changes >= 4", "Basis": "Hand oscillation detection"},
-        {"CMAI": 21, "Behaviour": "General restlessness", "Signal Thresholds": "Movement > 15 AND σ > 5 AND HR > 90", "Basis": "Combined arousal indicators"},
+        {"CMAI": 21, "Behaviour": "General restlessness", "Signal Thresholds": "Movement > 15 AND σ > 5 AND HR high/rising", "Basis": "Combined arousal indicators"},
     ]
 
     st.dataframe(pd.DataFrame(rules_data), hide_index=True, width='stretch')
@@ -1251,12 +934,13 @@ with tab_cmai:
         <div class='cmai-section-box'>
             <div class='cmai-category-header' style='color: #34d399;'>❤️ Physiological</div>
             <span class='signal-tag'>heartRate</span>
+            <span class='signal-tag-new'>spo2</span>
         </div>
         """, unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════════
-#  TAB 3: AUDIO ANALYSIS
+#  TAB 4: AUDIO ANALYSIS
 # ════════════════════════════════════════════════════════════════
 with tab_audio:
     st.markdown("## 🎵 Audio Feature Analysis")
