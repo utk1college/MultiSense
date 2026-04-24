@@ -1,4 +1,4 @@
-import streamlit as st
+﻿import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -16,21 +16,21 @@ from utils.data_loader import load_sensor_data, load_audio_data, load_camera_dat
 from utils.cmai_engine import detect_cmai_behaviours, safe_get_val, safe_get_recent, describe_spo2, latest_val
 from utils.ui_helpers import inject_custom_css, style_fig, ACCENT, FONT_C
 
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PAGE CONFIG & CUSTOM CSS
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 st.set_page_config(
-    page_title="Behavioural Monitor — Prototype",
-    page_icon="⌚",
+    page_title="Behavioural Monitor - Prototype",
+    page_icon="B",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 inject_custom_css()
 
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  SESSION STATE INITIALIZATION
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 if "patient_state" not in st.session_state:
     st.session_state.patient_state = "Calm"
 if "cached_sensor_df" not in st.session_state:
@@ -42,25 +42,25 @@ if "last_fetch_time" not in st.session_state:
 if "detected_behaviours" not in st.session_state:
     st.session_state.detected_behaviours = []
 
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  HEADER (Responsive layout)
-# ════════════════════════════════════════════════════════════════
-st.markdown("## ⌚ Behavioural Monitor · Prototype")
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+st.markdown("## Behavioural Monitor | Prototype")
 
 # Controls row
 ctrl1, ctrl2, ctrl3 = st.columns([1, 1, 2])
 with ctrl1:
-    live_mode = st.toggle("🔴 Live Mode", value=False, help="Live mode fetches data every 30s. Offline mode uses cached data.")
+    live_mode = st.toggle("Live Mode", value=False, help="Live mode fetches data every 30s. Offline mode uses cached data.")
     if live_mode:
         st_autorefresh(interval=30000, key="refresh")  # 30 seconds to save Firebase reads
 with ctrl2:
-    if st.button("🔄 Refresh Now", width='stretch'):
+    if st.button("Refresh Now", width='stretch'):
         st.cache_data.clear()
         st.rerun()
 with ctrl3:
     ist = pytz.timezone('Asia/Kolkata')
-    mode_text = "<span class='mode-live'>● LIVE</span>" if live_mode else "<span class='mode-offline'>● OFFLINE</span>"
-    st.markdown(f"{mode_text} &nbsp;|&nbsp; 🕒 {pd.Timestamp.now(tz=ist).strftime('%H:%M:%S  •  %d %b %Y')}", unsafe_allow_html=True)
+    mode_text = "<span class='mode-live'>LIVE</span>" if live_mode else "<span class='mode-offline'>OFFLINE</span>"
+    st.markdown(f"{mode_text} &nbsp;|&nbsp; {pd.Timestamp.now(tz=ist).strftime('%H:%M:%S | %d %b %Y')}", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -78,8 +78,8 @@ st.session_state.last_fetch_time = datetime.now()
 
 
 #  RUN CMAI DETECTION
-# ════════════════════════════════════════════════════════════════
-detected_behaviours = detect_cmai_behaviours(sensor_df, audio_df)
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+detected_behaviours = detect_cmai_behaviours(sensor_df, audio_df, camera_df)
 st.session_state.detected_behaviours = detected_behaviours
 
 # Auto-update patient state based on detections
@@ -100,41 +100,41 @@ elif len(detected_behaviours) == 1 and detected_behaviours[0]["confidence"] == "
     # Single LOW confidence detection = likely still calm
     st.session_state.patient_state = "Calm"
 
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  TAB NAVIGATION
-# ════════════════════════════════════════════════════════════════
-tab_dashboard, tab_unified, tab_cmai, tab_audio = st.tabs(["📊 Live Dashboard", "🔄 Unified Data", "🧠 CMAI Detection", "🎵 Audio Analysis"])
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+tab_dashboard, tab_unified, tab_cmai, tab_audio = st.tabs(["Live Dashboard", "Unified Data", "CMAI Detection", "Audio Analysis"])
 
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  TAB 1: LIVE DASHBOARD
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 with tab_dashboard:
-    # ════════════════════════════════════════════════════════════════
-    #  ROW 1 — STATUS CARDS + AGITATION CONTROL
-    # ════════════════════════════════════════════════════════════════
-    st.markdown("<p class='section-header'>📊 &nbsp;STATUS OVERVIEW</p>", unsafe_allow_html=True)
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    #  ROW 1 â€” STATUS CARDS + AGITATION CONTROL
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    st.markdown("<p class='section-header'>STATUS OVERVIEW</p>", unsafe_allow_html=True)
 
     r1c1, r1c2, r1c3, r1c4, r1c5 = st.columns([1.6, 1, 1, 1, 1.4])
 
     with r1c1:
         state = st.session_state.patient_state
         if state == "Calm":
-            st.markdown("<span class='badge-calm'>😌 &nbsp;Calm</span>", unsafe_allow_html=True)
+            st.markdown("<span class='badge-calm'>Calm</span>", unsafe_allow_html=True)
         else:
-            st.markdown("<span class='badge-agitated'>⚠️ &nbsp;Agitated</span>", unsafe_allow_html=True)
+            st.markdown("<span class='badge-agitated'>Agitated</span>", unsafe_allow_html=True)
 
     with r1c2:
-        st.metric("❤️ Heart Rate", latest_val(sensor_df, "heartRate", ".0f"))
+        st.metric("Heart Rate", latest_val(sensor_df, "heartRate", ".0f"))
 
     with r1c3:
         spo2_display = latest_val(sensor_df, "spo2", ".0f")
-        if spo2_display != "—":
+        if spo2_display != "N/A":
             st.metric("SpO2", f"{spo2_display}%")
         else:
-            st.metric("🏃 Movement", latest_val(sensor_df, "accelMag_smooth"))
+            st.metric("Movement", latest_val(sensor_df, "accelMag_smooth"))
 
     with r1c4:
-        st.metric("🗣️ Speech Ratio", latest_val(audio_df, "speech_ratio", ".2f"))
+        st.metric("Speech Ratio", latest_val(audio_df, "speech_ratio", ".2f"))
 
     # Show agitation score breakdown if available
     cas = safe_get_val(audio_df, "combined_agitation_score")
@@ -162,17 +162,17 @@ with tab_dashboard:
     with r1c5:
         bc1, bc2 = st.columns(2)
         with bc1:
-            if st.button("⚡ Trigger Agitation", width='stretch', type="primary"):
+            if st.button("Trigger Agitation", width='stretch', type="primary"):
                 st.session_state.patient_state = "Agitated"
                 st.rerun()
         with bc2:
-            if st.button("🔄 Reset to Calm", width='stretch'):
+            if st.button("Reset to Calm", width='stretch'):
                 st.session_state.patient_state = "Calm"
                 st.rerun()
 
-    # ════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # KEYWORD DETECTION ALERTS (from speech recognition)
-    # ════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     latest_transcription = safe_get_val(audio_df, "transcription")
     latest_score = safe_get_val(audio_df, "combined_agitation_score")
     latest_keywords = safe_get_val(audio_df, "top_keywords")
@@ -192,7 +192,7 @@ with tab_dashboard:
         <div class='keyword-alert'>
             <div style='display: flex; justify-content: space-between; align-items: center;'>
                 <div>
-                    <strong style='font-size: 1.1rem;'>🎤 SPEECH DETECTED</strong>
+                    <strong style='font-size: 1.1rem;'>SPEECH DETECTED</strong>
                     <span class='score-badge {score_class}' style='margin-left: 12px;'>{score_pct}</span>
                 </div>
                 <span style='opacity: 0.7; font-size: 0.85rem;'>Agitation Score</span>
@@ -208,7 +208,7 @@ with tab_dashboard:
 
     # Show active detections
     if detected_behaviours:
-        st.markdown("<p class='section-header'>🚨 &nbsp;ACTIVE DETECTIONS</p>", unsafe_allow_html=True)
+        st.markdown("<p class='section-header'>ACTIVE DETECTIONS</p>", unsafe_allow_html=True)
         for det in detected_behaviours:
             if det["confidence"] == "HIGH":
                 st.markdown(f"""
@@ -229,17 +229,17 @@ with tab_dashboard:
     if st.session_state.patient_state == "Agitated":
         st.markdown("""
         <div class='intervention-banner'>
-            🎵 &nbsp; <b>Intervention Active</b> — Playing calming music…  &nbsp;
-            🧘 Guided breathing pattern initiated
+            <b>Intervention Active</b> - Playing calming music... &nbsp;
+            Guided breathing pattern initiated
         </div>
         """, unsafe_allow_html=True)
 
     st.markdown("")
 
-    # ═══════════════════════════════════════════════════════════
-    #  ROW 2 — MAIN CHARTS (Motion | Audio)
-    # ═══════════════════════════════════════════════════════════
-    st.markdown("<p class='section-header'>📈 &nbsp;LIVE SIGNALS</p>", unsafe_allow_html=True)
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    #  ROW 2 â€” MAIN CHARTS (Motion | Audio)
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    st.markdown("<p class='section-header'>LIVE SIGNALS</p>", unsafe_allow_html=True)
 
     chart_left, chart_right = st.columns(2)
 
@@ -273,7 +273,7 @@ with tab_dashboard:
             else:
                 st.info("No motion or heart rate data available")
         else:
-            st.info("Waiting for sensor data…")
+            st.info("Waiting for sensor data...")
 
     # AUDIO CHART
     with chart_right:
@@ -310,17 +310,17 @@ with tab_dashboard:
             else:
                 st.info("No audio features available")
         else:
-            st.info("Waiting for audio data…")
+            st.info("Waiting for audio data...")
 
-    # ═══════════════════════════════════════════════════════════
-    #  ROW 3 — SUPPLEMENTARY
-    # ═══════════════════════════════════════════════════════════
-    st.markdown("<p class='section-header'>🔎 &nbsp;SUPPLEMENTARY</p>", unsafe_allow_html=True)
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    #  ROW 3 â€” SUPPLEMENTARY
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    st.markdown("<p class='section-header'>SUPPLEMENTARY</p>", unsafe_allow_html=True)
 
     bot1, bot2, bot3 = st.columns(3)
 
     with bot1:
-        st.markdown("###### 💡 Ambient Light")
+        st.markdown("###### Ambient Light")
         if not sensor_df.empty and "light" in sensor_df.columns:
             fig_light = go.Figure(go.Scatter(
                 x=sensor_df["timestamp"], y=sensor_df["light"],
@@ -333,7 +333,7 @@ with tab_dashboard:
             st.caption("No light data")
 
     with bot2:
-        st.markdown("###### 📊 New Audio Features")
+        st.markdown("###### New Audio Features")
         # Show new spectral features if available
         new_features = ["zcr", "spectral_centroid", "spectral_bandwidth", "spectral_flux"]
         available_new = [f for f in new_features if f in audio_df.columns]
@@ -346,7 +346,7 @@ with tab_dashboard:
             st.caption("New audio features not yet available")
 
     with bot3:
-        st.markdown("###### 🩸 SpO2 Analysis")
+        st.markdown("###### SpO2 Analysis")
         latest_spo2 = safe_get_val(sensor_df, "spo2")
         if latest_spo2 is not None:
             spo2_label, spo2_color = describe_spo2(latest_spo2)
@@ -398,14 +398,14 @@ with tab_dashboard:
                 st.caption("No SpO2 data from watch yet")
 
 
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  TAB 2: UNIFIED DATA (Multi-source integration)
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 with tab_unified:
-    st.markdown("## 🔄 Unified Multi-Source Data")
+    st.markdown("## Unified Multi-Source Data")
 
     # Extract patient ID (should be same across all sources)
-    patient_id = "—"
+    patient_id = "N/A"
     if not sensor_df.empty and "patient_id" in sensor_df.columns:
         pid_vals = sensor_df["patient_id"].dropna().unique()
         if len(pid_vals) > 0:
@@ -429,10 +429,10 @@ with tab_unified:
     </div>
     """, unsafe_allow_html=True)
 
-    # ════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # UNIFIED SUMMARY BY CYCLE
-    # ════════════════════════════════════════════════════════════════
-    st.markdown("<p class='section-header'>📋 &nbsp;CYCLE SUMMARY</p>", unsafe_allow_html=True)
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    st.markdown("<p class='section-header'>CYCLE SUMMARY</p>", unsafe_allow_html=True)
 
     # Collect all cycle_ids from all three sources
     all_cycles = set()
@@ -482,22 +482,22 @@ with tab_unified:
                 "Sensor Samples": sensor_count,
                 "Audio Samples": audio_count,
                 "Camera Samples": camera_count,
-                "Latest HR": latest_hr or "—",
-                "Posture": latest_posture or "—",
-                "Agitation": latest_agitation or "—"
+                "Latest HR": latest_hr or "N/A",
+                "Posture": latest_posture or "N/A",
+                "Agitation": latest_agitation or "N/A"
             })
 
         if cycle_summary:
             st.dataframe(pd.DataFrame(cycle_summary), hide_index=True, width='stretch')
     else:
-        st.info("No data from any source yet. Waiting for recordings…")
+        st.info("No data from any source yet. Waiting for recordings...")
 
     st.markdown("---")
 
-    # ════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # DETAILED PER-CYCLE BREAKDOWN
-    # ════════════════════════════════════════════════════════════════
-    st.markdown("<p class='section-header'>🔬 &nbsp;DETAILED CYCLE BREAKDOWN</p>", unsafe_allow_html=True)
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    st.markdown("<p class='section-header'>DETAILED CYCLE BREAKDOWN</p>", unsafe_allow_html=True)
 
     if all_cycles:
         sorted_cycles = sorted(all_cycles, reverse=True)
@@ -512,11 +512,11 @@ with tab_unified:
             camera_count = len(camera_data)
 
             # Expander for each cycle
-            with st.expander(f"📊 Cycle {int(cycle_id)} — Sensor:{sensor_count} | Audio:{audio_count} | Camera:{camera_count}"):
+            with st.expander(f"Cycle {int(cycle_id)} - Sensor:{sensor_count} | Audio:{audio_count} | Camera:{camera_count}"):
 
                 # === SENSOR DATA ===
                 if sensor_count > 0:
-                    st.markdown("##### 📈 Sensor Data")
+                    st.markdown("##### Sensor Data")
 
                     # Statistics
                     col_s1, col_s2, col_s3, col_s4 = st.columns(4)
@@ -526,28 +526,28 @@ with tab_unified:
                             if not hr_vals.empty:
                                 st.metric("HR (avg)", f"{hr_vals.mean():.0f}")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
                     with col_s2:
                         if "accelMag" in sensor_data.columns:
                             accel_vals = sensor_data["accelMag"].dropna()
                             if not accel_vals.empty:
                                 st.metric("Accel (avg)", f"{accel_vals.mean():.2f}")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
                     with col_s3:
                         if "light" in sensor_data.columns:
                             light_vals = sensor_data["light"].dropna()
                             if not light_vals.empty:
                                 st.metric("Light (avg)", f"{light_vals.mean():.0f}")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
                     with col_s4:
                         if "spo2" in sensor_data.columns:
                             spo2_vals = sensor_data["spo2"].dropna()
                             if not spo2_vals.empty:
                                 st.metric("SpO2 (avg)", f"{spo2_vals.mean():.1f}%")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
 
                     # Detailed table
                     with st.expander("View all sensor samples"):
@@ -555,13 +555,13 @@ with tab_unified:
                         cols_available = [c for c in cols_to_show if c in sensor_data.columns]
                         st.dataframe(sensor_data[cols_available], width='stretch')
                 else:
-                    st.caption("ℹ️ No sensor data in this cycle")
+                    st.caption("No sensor data in this cycle")
 
                 st.markdown("---")
 
                 # === AUDIO DATA ===
                 if audio_count > 0:
-                    st.markdown("##### 🎤 Audio Data")
+                    st.markdown("##### Audio Data")
 
                     # Statistics
                     col_a1, col_a2, col_a3, col_a4 = st.columns(4)
@@ -571,28 +571,28 @@ with tab_unified:
                             if not energy_vals.empty:
                                 st.metric("Energy (avg)", f"{energy_vals.mean():.0f}")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
                     with col_a2:
                         if "combined_agitation_score" in audio_data.columns:
                             agit_vals = audio_data["combined_agitation_score"].dropna()
                             if not agit_vals.empty:
                                 st.metric("Agitation (avg)", f"{agit_vals.mean():.2f}")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
                     with col_a3:
                         if "speech_ratio" in audio_data.columns:
                             speech_vals = audio_data["speech_ratio"].dropna()
                             if not speech_vals.empty:
                                 st.metric("Speech Ratio (avg)", f"{speech_vals.mean():.2%}")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
                     with col_a4:
                         if "pitch" in audio_data.columns:
                             pitch_vals = audio_data["pitch"].dropna()
                             if not pitch_vals.empty:
                                 st.metric("Pitch (avg)", f"{pitch_vals.mean():.0f}Hz")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
 
                     # Detailed table
                     with st.expander("View all audio samples"):
@@ -600,44 +600,44 @@ with tab_unified:
                         cols_available = [c for c in cols_to_show if c in audio_data.columns]
                         st.dataframe(audio_data[cols_available], width='stretch')
                 else:
-                    st.caption("ℹ️ No audio data in this cycle")
+                    st.caption("No audio data in this cycle")
 
                 st.markdown("---")
 
                 # === CAMERA DATA ===
                 if camera_count > 0:
-                    st.markdown("##### 🎥 Camera Data")
+                    st.markdown("##### Camera Data")
 
                     # Statistics
                     col_c1, col_c2, col_c3, col_c4 = st.columns(4)
                     with col_c1:
                         if "posture" in camera_data.columns:
                             posture_counts = camera_data["posture"].value_counts()
-                            top_posture = posture_counts.index[0] if len(posture_counts) > 0 else "—"
+                            top_posture = posture_counts.index[0] if len(posture_counts) > 0 else "N/A"
                             st.metric("Posture (most)", top_posture)
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
                     with col_c2:
                         if "leg_angle" in camera_data.columns:
                             leg_vals = camera_data["leg_angle"].dropna()
                             if not leg_vals.empty:
-                                st.metric("Leg Angle (avg)", f"{leg_vals.mean():.1f}°")
+                                st.metric("Leg Angle (avg)", f"{leg_vals.mean():.1f} deg")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
                     with col_c3:
                         if "elbow_speed" in camera_data.columns:
                             elbow_vals = camera_data["elbow_speed"].dropna()
                             if not elbow_vals.empty:
                                 st.metric("Elbow Speed (avg)", f"{elbow_vals.mean():.2f}")
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
                     with col_c4:
                         if "hand_state" in camera_data.columns:
                             hand_counts = camera_data["hand_state"].value_counts()
-                            top_hand = hand_counts.index[0] if len(hand_counts) > 0 else "—"
+                            top_hand = hand_counts.index[0] if len(hand_counts) > 0 else "N/A"
                             st.metric("Hand State (most)", top_hand)
                         else:
-                            st.caption("—")
+                            st.caption("N/A")
 
                     # Detailed table
                     with st.expander("View all camera samples"):
@@ -645,22 +645,22 @@ with tab_unified:
                         cols_available = [c for c in cols_to_show if c in camera_data.columns]
                         st.dataframe(camera_data[cols_available], width='stretch')
                 else:
-                    st.caption("ℹ️ No camera data in this cycle")
+                    st.caption("No camera data in this cycle")
 
-    # ════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # DETAILED UNIFIED VIEW
-    # ════════════════════════════════════════════════════════════════
-    st.markdown("<p class='section-header'>🔍 &nbsp;DETAILED CROSS-MODAL VIEW</p>", unsafe_allow_html=True)
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    st.markdown("<p class='section-header'>DETAILED CROSS-MODAL VIEW</p>", unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("##### 📊 Sensor Metrics")
+        st.markdown("##### Sensor Metrics")
         if not sensor_df.empty:
             latest_sensor = sensor_df.iloc[-1]
             if "heartRate" in latest_sensor and latest_sensor["heartRate"] is not None:
                 st.metric("Latest HR", f"{latest_sensor['heartRate']:.0f}")
             else:
-                st.metric("Latest HR", "—")
+                st.metric("Latest HR", "N/A")
 
             accel_smooth = latest_sensor.get('accelMag_smooth') if 'accelMag_smooth' in latest_sensor else None
             accel = latest_sensor.get('accelMag') if 'accelMag' in latest_sensor else None
@@ -668,12 +668,12 @@ with tab_unified:
             if accel_val is not None:
                 st.metric("Movement", f"{accel_val:.2f}")
             else:
-                st.metric("Movement", "—")
+                st.metric("Movement", "N/A")
 
             if "light" in latest_sensor and latest_sensor["light"] is not None:
                 st.metric("Light Level", f"{latest_sensor['light']:.0f}")
             else:
-                st.metric("Light Level", "—")
+                st.metric("Light Level", "N/A")
 
             if "gyroX" in latest_sensor and latest_sensor['gyroX'] is not None:
                 st.caption(f"GyroX: {latest_sensor['gyroX']:.4f}")
@@ -681,17 +681,17 @@ with tab_unified:
             st.caption("No sensor data")
 
     with col2:
-        st.markdown("##### 🎥 Camera Metrics")
+        st.markdown("##### Camera Metrics")
         if not camera_df.empty:
             latest_camera = camera_df.iloc[-1]
-            posture = latest_camera.get("posture", "—") if "posture" in latest_camera else "—"
+            posture = latest_camera.get("posture", "N/A") if "posture" in latest_camera else "N/A"
             st.metric("Posture", posture)
 
-            hand_state = latest_camera.get("hand_state", "—") if "hand_state" in latest_camera else "—"
+            hand_state = latest_camera.get("hand_state", "N/A") if "hand_state" in latest_camera else "N/A"
             st.metric("Hand State", hand_state)
 
             if "leg_angle" in latest_camera and latest_camera.get("leg_angle") is not None:
-                st.metric("Leg Angle", f"{latest_camera['leg_angle']:.1f}°")
+                st.metric("Leg Angle", f"{latest_camera['leg_angle']:.1f} deg")
 
             if "elbow_speed" in latest_camera and latest_camera.get("elbow_speed") is not None:
                 st.caption(f"Elbow Speed: {latest_camera['elbow_speed']:.2f}")
@@ -699,7 +699,7 @@ with tab_unified:
             st.caption("No camera data")
 
     with col3:
-        st.markdown("##### 🎤 Audio Metrics")
+        st.markdown("##### Audio Metrics")
         if not audio_df.empty:
             latest_audio = audio_df.iloc[-1]
             agit_score = latest_audio.get("combined_agitation_score") if "combined_agitation_score" in latest_audio else None
@@ -710,7 +710,7 @@ with tab_unified:
             if "audio_energy" in latest_audio and latest_audio["audio_energy"] is not None:
                 st.metric("Audio Energy", f"{latest_audio['audio_energy']:.0f}")
             else:
-                st.metric("Audio Energy", "—")
+                st.metric("Audio Energy", "N/A")
 
             if "dominant_contributor" in latest_audio:
                 st.caption(f"Dominant: {latest_audio['dominant_contributor']}")
@@ -719,10 +719,10 @@ with tab_unified:
 
     st.markdown("---")
 
-    # ════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # SOURCE COMPARISON TIMELINE
-    # ════════════════════════════════════════════════════════════════
-    st.markdown("<p class='section-header'>⏱️ &nbsp;MULTI-SOURCE TIMELINE</p>", unsafe_allow_html=True)
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    st.markdown("<p class='section-header'>MULTI-SOURCE TIMELINE</p>", unsafe_allow_html=True)
 
     timeline_data = []
 
@@ -777,11 +777,11 @@ with tab_unified:
             source_color = color_map.get(row["source"], "#94a3b8")
 
             cycle_val = row.get("cycle_id")
-            cycle_str = f"{int(cycle_val)}" if pd.notna(cycle_val) and cycle_val != "" else "—"
+            cycle_str = f"{int(cycle_val)}" if pd.notna(cycle_val) and cycle_val != "" else "N/A"
 
             st.markdown(f"""
             <div style='background: rgba(30,30,47,0.6); padding: 10px 14px; border-radius: 8px; margin: 4px 0;'>
-                <span style='color: {source_color}; font-weight: 600;'>● {row["source"]}</span>
+                <span style='color: {source_color}; font-weight: 600;'>{row["source"]}</span>
                 <span style='color: #64748b; margin: 0 10px;'>{ts_str}</span>
                 <span style='color: #94a3b8;'>{row["metric"]}</span>
                 <span style='color: #475569; float: right;'>Cycle: {cycle_str}</span>
@@ -791,11 +791,11 @@ with tab_unified:
         st.info("No unified data to display")
 
 
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  TAB 3: CMAI DETECTION
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 with tab_cmai:
-    st.markdown("## 🧠 CMAI Behaviour Detection")
+    st.markdown("## CMAI Behaviour Detection")
 
     st.markdown("""
     <div class='research-note'>
@@ -807,10 +807,10 @@ with tab_cmai:
     </div>
     """, unsafe_allow_html=True)
 
-    # ════════════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # RECENT CMAI ALERTS (from cmai_detections collection)
-    # ════════════════════════════════════════════════════════════════
-    st.markdown("### 🚨 Recent Speech-Based Alerts")
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    st.markdown("### Recent Speech-Based Alerts")
 
     if not cmai_df.empty:
         for _, row in cmai_df.head(5).iterrows():
@@ -854,13 +854,13 @@ with tab_cmai:
             </div>
             """, unsafe_allow_html=True)
     else:
-        st.info("🎤 No keyword alerts detected. Alerts appear when PAIN, HELP, or similar words are spoken with agitation.")
+        st.info("No keyword alerts detected. Alerts appear when PAIN, HELP, or similar words are spoken with agitation.")
 
 
     st.markdown("---")
 
     # Current rule-based detections
-    st.markdown("### 📊 Current Rule-Based Detections")
+    st.markdown("### Current Rule-Based Detections")
 
     if detected_behaviours:
         for det in detected_behaviours:
@@ -876,23 +876,27 @@ with tab_cmai:
             </div>
             """, unsafe_allow_html=True)
     else:
-        st.success("✅ No agitation behaviours currently detected")
+        st.success("No agitation behaviours currently detected")
 
     st.markdown("---")
 
     # Detection rules reference
-    st.markdown("### 📋 Detection Rules Reference")
+    st.markdown("### Detection Rules Reference")
 
     rules_data = [
-        {"CMAI": 22, "Behaviour": "Screaming/Loud Vocalization", "Signal Thresholds": "Energy > 1500 + multi-indicator acoustic spike", "Basis": "Harsh, loud vocal output"},
-        {"CMAI": 22, "Behaviour": "Pain/Discomfort vocalization", "Signal Thresholds": "Pain keywords + speech > 20% + energy > 650", "Basis": "Keyword-confirmed distress"},
-        {"CMAI": 24, "Behaviour": "Verbal agitation/aggression", "Signal Thresholds": "Elevated speech OR keyword-confirmed distress/aggression", "Basis": "Speech tone + semantic cues"},
-        {"CMAI": 25, "Behaviour": "Continuous/repetitive vocalization", "Signal Thresholds": "Speech ratio > 0.6 OR repeated words over recent windows", "Basis": "Sustained or repetitive speech"},
-        {"CMAI": 26, "Behaviour": "Strange noises/negativism", "Signal Thresholds": "Non-speech impact acoustics OR refusal keywords", "Basis": "Acoustic anomaly + refusal language"},
-        {"CMAI": 27, "Behaviour": "Calling out for help", "Signal Thresholds": "Help/caregiver keywords + speech + energy gate", "Basis": "Direct verbal help-seeking"},
-        {"CMAI": 12, "Behaviour": "Pacing/fidgeting", "Signal Thresholds": "Sustained movement OR oscillatory accel changes", "Basis": "Regular or restless motion"},
-        {"CMAI": 20, "Behaviour": "Repetitive mannerisms", "Signal Thresholds": "GyroX sign changes >= 4", "Basis": "Hand oscillation detection"},
-        {"CMAI": 21, "Behaviour": "General restlessness", "Signal Thresholds": "Movement > 15 AND σ > 5 AND HR high/rising", "Basis": "Combined arousal indicators"},
+        {"CMAI": 22, "Behaviour": "Screaming", "Signal Thresholds": "Energy > 1500 + multi-indicator acoustic spike", "Basis": "Harsh, loud vocal output"},
+        {"CMAI": 24, "Behaviour": "Cursing or verbal aggression", "Signal Thresholds": "Elevated speech OR keyword-confirmed aggression", "Basis": "Speech tone + semantic cues"},
+        {"CMAI": 25, "Behaviour": "Repetitive sentences or questions", "Signal Thresholds": "Speech ratio > 0.6 OR repeated words over recent windows", "Basis": "Sustained or repetitive speech"},
+        {"CMAI": 26, "Behaviour": "Strange noises (weird laughter or crying)", "Signal Thresholds": "Non-speech impact acoustics", "Basis": "Acoustic anomaly cues"},
+        {"CMAI": 28, "Behaviour": "Negativism", "Signal Thresholds": "Refusal keywords + speech + energy gate", "Basis": "Keyword-confirmed refusal pattern"},
+        {"CMAI": 29, "Behaviour": "Constant unwarranted request for attention or help", "Signal Thresholds": "Help/caregiver keywords + speech + energy gate", "Basis": "Direct help-seeking language"},
+        {"CMAI": 12, "Behaviour": "Paces, aimless wandering", "Signal Thresholds": "Sustained movement OR oscillatory accel changes", "Basis": "Regular or restless motion"},
+        {"CMAI": 20, "Behaviour": "Performing repetitious mannerisms", "Signal Thresholds": "GyroX sign changes >= 4", "Basis": "Hand oscillation detection"},
+        {"CMAI": 21, "Behaviour": "General restlessness", "Signal Thresholds": "Movement > 15 AND std > 5 AND HR high/rising", "Basis": "Combined arousal indicators"},
+        {"CMAI": 1, "Behaviour": "Hitting (including self)", "Signal Thresholds": "Camera HIT + wearable corroborators", "Basis": "Cross-modal physical aggression"},
+        {"CMAI": 2, "Behaviour": "Kicking", "Signal Thresholds": "Camera kick + wearable corroborators", "Basis": "Cross-modal physical aggression"},
+        {"CMAI": 4, "Behaviour": "Pushing", "Signal Thresholds": "Camera shove + wearable corroborators", "Basis": "Cross-modal physical aggression"},
+        {"CMAI": 5, "Behaviour": "Throwing things", "Signal Thresholds": "Camera THROW + wearable corroborators", "Basis": "Cross-modal physical aggression"},
     ]
 
     st.dataframe(pd.DataFrame(rules_data), hide_index=True, width='stretch')
@@ -900,14 +904,14 @@ with tab_cmai:
     st.markdown("---")
 
     # Available signals
-    st.markdown("### 📡 Available Signals")
+    st.markdown("### Available Signals")
 
     sig_col1, sig_col2, sig_col3 = st.columns(3)
 
     with sig_col1:
         st.markdown("""
         <div class='cmai-section-box'>
-            <div class='cmai-category-header' style='color: #38bdf8;'>🏃 Motion Signals</div>
+            <div class='cmai-category-header' style='color: #38bdf8;'>Motion Signals</div>
             <span class='signal-tag'>accelMag_smooth</span>
             <span class='signal-tag'>gyroX</span>
             <span class='signal-tag'>gyroY</span>
@@ -918,7 +922,7 @@ with tab_cmai:
     with sig_col2:
         st.markdown("""
         <div class='cmai-section-box'>
-            <div class='cmai-category-header' style='color: #f472b6;'>🗣️ Audio Signals</div>
+            <div class='cmai-category-header' style='color: #f472b6;'>Audio Signals</div>
             <span class='signal-tag'>audio_energy</span>
             <span class='signal-tag'>speech_ratio</span>
             <span class='signal-tag'>pitch</span>
@@ -932,18 +936,18 @@ with tab_cmai:
     with sig_col3:
         st.markdown("""
         <div class='cmai-section-box'>
-            <div class='cmai-category-header' style='color: #34d399;'>❤️ Physiological</div>
+            <div class='cmai-category-header' style='color: #34d399;'>Physiological</div>
             <span class='signal-tag'>heartRate</span>
             <span class='signal-tag-new'>spo2</span>
         </div>
         """, unsafe_allow_html=True)
 
 
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  TAB 4: AUDIO ANALYSIS
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 with tab_audio:
-    st.markdown("## 🎵 Audio Feature Analysis")
+    st.markdown("## Audio Feature Analysis")
 
     st.markdown("""
     <div class='research-note'>
@@ -955,14 +959,14 @@ with tab_audio:
 
     if not audio_df.empty:
         # Feature definitions
-        st.markdown("### 📖 Feature Definitions")
+        st.markdown("### Feature Definitions")
 
         feature_defs = {
-            "audio_energy": ("RMS Energy", "sqrt(1/N × Σx[n]²)", "Loudness/intensity of sound"),
-            "zcr": ("Zero-Crossing Rate", "(1/2N) × Σ|sign(x[n]) - sign(x[n-1])|", "High ZCR = noise/unvoiced, Low ZCR = voiced speech"),
-            "spectral_centroid": ("Spectral Centroid", "Σ(f[k] × |X[k]|) / Σ|X[k]|", "Brightness - high = harsh/screaming, low = calm"),
-            "spectral_bandwidth": ("Spectral Bandwidth", "sqrt(Σ((f[k] - SC)² × |X[k]|) / Σ|X[k]|)", "Frequency spread - wide = screams/noise"),
-            "spectral_flux": ("Spectral Flux", "Σ(|X_t[k]| - |X_{t-1}[k]|)²", "Sudden changes - high = onset detection"),
+            "audio_energy": ("RMS Energy", "sqrt((1/N) * sum(x[n]^2))", "Loudness/intensity of sound"),
+            "zcr": ("Zero-Crossing Rate", "(1/2N) * sum(|sign(x[n]) - sign(x[n-1])|)", "High ZCR = noise/unvoiced, Low ZCR = voiced speech"),
+            "spectral_centroid": ("Spectral Centroid", "sum(f[k] * |X[k]|) / sum(|X[k]|)", "Brightness - high = harsh/screaming, low = calm"),
+            "spectral_bandwidth": ("Spectral Bandwidth", "sqrt(sum(((f[k] - SC)^2) * |X[k]|) / sum(|X[k]|))", "Frequency spread - wide = screams/noise"),
+            "spectral_flux": ("Spectral Flux", "sum((|X_t[k]| - |X_t-1[k]|)^2)", "Sudden changes - high = onset detection"),
             "pitch": ("Pitch (F0)", "Autocorrelation-based", "Fundamental frequency - high pitch = distress"),
             "speech_ratio": ("Speech Ratio", "VAD: Energy + ZCR + Centroid", "Proportion of audio containing speech"),
         }
@@ -972,7 +976,7 @@ with tab_audio:
             with cols[idx % 3]:
                 val = safe_get_val(audio_df, key)
                 val_str = f"{val:.2f}" if val is not None else "N/A"
-                available = "✅" if key in audio_df.columns else "❌"
+                available = "Available" if key in audio_df.columns else "Missing"
                 st.markdown(f"""
                 <div style='background: rgba(30,30,47,0.6); padding: 12px; border-radius: 8px; margin: 4px 0;'>
                     <strong>{available} {name}</strong><br>
@@ -985,7 +989,7 @@ with tab_audio:
         st.markdown("---")
 
         # Time series of all audio features
-        st.markdown("### 📈 Audio Feature Timeline")
+        st.markdown("### Audio Feature Timeline")
 
         all_audio_cols = [c for c in audio_df.columns if c not in ["timestamp", "mfcc"]]
         selected_features = st.multiselect(
@@ -1009,7 +1013,7 @@ with tab_audio:
         st.markdown("---")
 
         # MFCC visualization
-        st.markdown("### 🎙️ MFCC Analysis")
+        st.markdown("### MFCC Analysis")
         if "mfcc" in audio_df.columns:
             try:
                 sample = audio_df["mfcc"].dropna().iloc[-1] if not audio_df["mfcc"].dropna().empty else None
@@ -1028,11 +1032,11 @@ with tab_audio:
         else:
             st.caption("MFCC data not available")
     else:
-        st.info("Waiting for audio data…")
+        st.info("Waiting for audio data...")
 
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  FOOTER
-# ════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 st.markdown("---")
 st.markdown(
     f"<p style='text-align:center; color:#475569; font-size:.75rem;'>"
@@ -1041,3 +1045,4 @@ st.markdown(
     f"</p>",
     unsafe_allow_html=True,
 )
+
