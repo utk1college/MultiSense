@@ -571,7 +571,39 @@ def detect_cmai_behaviours(sensor_df, audio_df, camera_df=None):
                 "evidence": f"KeywordScore={refusal_score:.2f}, Speech={speech_ratio:.0%}, Energy={energy:.0f}",
                 "category": "verbal"
             })
-
+    # CMAI Item 27: Complaining / Irritability (without physical aggression)
+    # VERY RELIABLE: Detects actual complaint language + acoustic intensity
+    # Look for complaint keywords in transcribed speech with acoustic corroboration
+    complaint_keywords = ["ugh", "annoyed", "frustrated", "annoying", "annoyer", "irritating", 
+                          "complain", "complaint", "complaining", "grumpy", "fed up", "sick of",
+                          "irritated", "bothered", "bothering", "nuisance", "pain", "upset"]
+    transcribed_text = ""
+    if not audio_df.empty and "transcription" in audio_df.columns:
+        latest_transcription = audio_df.dropna(subset=["transcription"]).iloc[-1:].get("transcription", "")
+        if not latest_transcription.empty:
+            transcribed_text = str(latest_transcription.iloc[0] if isinstance(latest_transcription, pd.Series) else latest_transcription).lower()
+    
+    complaint_keywords_found = [kw for kw in complaint_keywords if kw in transcribed_text]
+    
+    if complaint_keywords_found and speech_ratio is not None and energy is not None:
+        # Corroborate with acoustic features
+        has_energy_rise = energy > 900
+        has_sustained_speech = speech_ratio > 0.3
+        has_pitch_variation = (pitch_stats["available"] and pitch_stats["std"] > 30) if pitch_stats else False
+        
+        corroborators = sum([has_energy_rise, has_sustained_speech, has_pitch_variation])
+        
+        if corroborators >= 2:  # Require at least 2 acoustic corroborators
+            detections.append({
+                "cmai_item": 27,
+                "behaviour": "Complaining, irritability",
+                "confidence": "HIGH" if corroborators == 3 else "MEDIUM",
+                "evidence": (
+                    f"Keywords=[{', '.join(complaint_keywords_found[:2])}...], "
+                    f"Energy={energy:.0f}, Speech={speech_ratio:.0%}, PitchVar={pitch_stats['std']:.1f if pitch_stats['available'] else 'N/A'}"
+                ),
+                "category": "verbal"
+            })
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # SUDDEN SOUND DETECTION (Clapping, Banging, etc.)
     # Only detect if energy is significant (not ambient noise)
