@@ -7,7 +7,7 @@ A modular, robust visual analytics dashboard built with Streamlit. This applicat
 - **Live Sensor Syncing**: Pulls high-frequency accelerometer, gyroscope, heart rate, and ambient light events.
 - **SpO2 Diagnostics**: Intercepts diagnostic data and precise oxygen saturation metrics reported by the Samsung Health Sensor SDK.
 - **Acoustic Profiling**: Visual metrics for Spectral Centroid, Audio Energy, Pitch, and Zero-Crossing Rate calculated from watch-recorded raw audio.
-- **CMAI Rule Engine**: A clinical rule-based inference system customized for Wear OS micro-movements (filters out typing/noise) to detect Pain, Help Vocalizations, Restlessness, Tremors, and Aggression.
+- **CMAI Rule Engine**: A comprehensive rule-based inference system customized for Wear OS micro-movements (filters out typing/noise) to detect behavioral patterns indicative of distress and agitation.
 - **Quota-Friendly Firebase Implementation**: Utilizes modern `FieldFilter` and Streamlit caching (`@st.cache_data`) to prevent Firestore quota exhaustion during rapid live-refresh cycles.
 
 ## Modular Architecture
